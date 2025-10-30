@@ -267,91 +267,77 @@
     </div>
 
     <script>
-        // Configuration - Replace these with your actual n8n webhook details
-        const CONFIG = {
-            webhookUrl: 'YOUR_N8N_WEBHOOK_URL_HERE',
-            authToken: 'YOUR_AUTH_TOKEN_HERE' // If using basic auth, format as 'username:password'
-        };
-
+        // ✅ Use your Worker URL (NOT the n8n URL)
+        const WORKER_URL = 'https://polite-no-bot-proxy.kajathieme.workers.dev';
+      
         async function generateResponse() {
-            const situationInput = document.getElementById('situation');
-            const generateBtn = document.getElementById('generateBtn');
-            const responseSection = document.getElementById('responseSection');
-            const responseText = document.getElementById('responseText');
-            const errorMessage = document.getElementById('errorMessage');
-
-            const situation = situationInput.value.trim();
-
-            // Validation
-            if (!situation) {
-                showError('Please describe your situation first.');
-                return;
+          const situationInput = document.getElementById('situation');
+          const generateBtn = document.getElementById('generateBtn');
+          const responseSection = document.getElementById('responseSection');
+          const responseText = document.getElementById('responseText');
+          const errorMessage = document.getElementById('errorMessage');
+      
+          const situation = situationInput.value.trim();
+      
+          // Validation
+          if (!situation) {
+            showError('Please describe your situation first.');
+            return;
+          }
+      
+          // Reset UI
+          responseSection.classList.remove('visible');
+          errorMessage.classList.remove('visible');
+          generateBtn.disabled = true;
+          generateBtn.innerHTML = '<span class="spinner"></span> Generating...';
+      
+          try {
+            // 🌐 Send the request to your Cloudflare Worker
+            const res = await fetch(WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ situation })
+            });
+      
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}`);
             }
-
-            // Hide previous response and error
-            responseSection.classList.remove('visible');
-            errorMessage.classList.remove('visible');
-
-            // Disable button and show loading state
-            generateBtn.disabled = true;
-            generateBtn.innerHTML = '<span class="spinner"></span> Generating...';
-
-            try {
-                // Make request to n8n webhook
-                const response = await fetch(CONFIG.webhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Basic ' + btoa(CONFIG.authToken)
-                    },
-                    body: JSON.stringify({
-                        situation: situation
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                // Extract response text from the expected format: [{ "response": "Text." }]
-                let politeResponse;
-                if (Array.isArray(data) && data.length > 0 && data[0].response) {
-                    politeResponse = data[0].response;
-                } else if (data.response) {
-                    politeResponse = data.response;
-                } else {
-                    throw new Error('Unexpected response format');
-                }
-
-                // Display response
-                responseText.textContent = politeResponse;
-                responseSection.classList.add('visible');
-
-            } catch (error) {
-                console.error('Error:', error);
-                showError('Failed to generate response. Please check your connection and try again.');
-            } finally {
-                // Reset button state
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = '✨ Generate Polite Response';
-            }
+      
+            const data = await res.json();
+      
+            // Extract polite response (n8n may return array or object)
+            const politeResponse =
+              Array.isArray(data) && data[0]?.response
+                ? data[0].response
+                : data.response ?? null;
+      
+            if (!politeResponse) throw new Error('Unexpected response format.');
+      
+            // ✅ Display response
+            responseText.textContent = politeResponse;
+            responseSection.classList.add('visible');
+          } catch (err) {
+            console.error(err);
+            showError('Failed to generate response. Please try again.');
+          } finally {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '✨ Generate Polite Response';
+          }
         }
-
+      
         function showError(message) {
-            const errorMessage = document.getElementById('errorMessage');
-            errorMessage.textContent = message;
-            errorMessage.classList.add('visible');
+          const errorMessage = document.getElementById('errorMessage');
+          errorMessage.textContent = message;
+          errorMessage.classList.add('visible');
         }
-
-        // Allow Enter key to submit (with Shift+Enter for new lines)
+      
+        // Allow Enter key submission
         document.getElementById('situation').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                generateResponse();
-            }
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            generateResponse();
+          }
         });
-    </script>
+      </script>
 </body>
 </html>
